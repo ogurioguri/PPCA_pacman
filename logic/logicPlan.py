@@ -50,6 +50,11 @@ def sentence1() -> Expr:
     (not A) or (not B) or C
     """
     "*** BEGIN YOUR CODE HERE ***"
+    A = Expr('A')
+    B = Expr('B')
+    C = Expr('C')
+    #return (A | B) & (~A %( ~B |C)) & (~A | ~B |C)
+    return conjoin([(A | B) , (~A % (~B | C)) , disjoin([~A , ~B , C])])
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -63,6 +68,11 @@ def sentence2() -> Expr:
     (not D) implies C
     """
     "*** BEGIN YOUR CODE HERE ***"
+    A = Expr('A')
+    B = Expr('B')
+    C = Expr('C')
+    D = Expr('D')
+    return conjoin([(C % (B |D)),A>>(~B & ~D),(~(B&(~C)))>>A,(~D)>>C])
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -80,6 +90,15 @@ def sentence3() -> Expr:
     Pacman is born at time 0.
     """
     "*** BEGIN YOUR CODE HERE ***"
+    PacmanAlive_1 = PropSymbolExpr('PacmanAlive',time=1)
+    PacmanAlive_0 = PropSymbolExpr('PacmanAlive',time=0)
+    PacmanBorn_0 = PropSymbolExpr('PacmanBorn',time=0)
+    PacmanKilled_0 = PropSymbolExpr('PacmanKilled',time=0)
+    alive_condition = (PacmanAlive_0 & ~PacmanKilled_0) | (~PacmanAlive_0 & PacmanBorn_0)
+    sentence1 = PacmanAlive_1 % alive_condition
+    sentence2 = ~(PacmanAlive_0 & PacmanBorn_0)
+    sentence3 = PacmanBorn_0
+    return conjoin([sentence1 , sentence2 , sentence3])
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -96,6 +115,8 @@ def findModelUnderstandingCheck() -> Dict[Expr, bool]:
     """
     a = Expr('A')
     "*** BEGIN YOUR CODE HERE ***"
+    a.op = 'a'
+    return {a: True}
     print("a.__dict__ is:", a.__dict__) # might be helpful for getting ideas
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
@@ -104,6 +125,9 @@ def entails(premise: Expr, conclusion: Expr) -> bool:
     """Returns True if the premise entails the conclusion and False otherwise.
     """
     "*** BEGIN YOUR CODE HERE ***"
+    combined_expr = premise & ~ conclusion
+    model = findModel(combined_expr)
+    return model == False
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -112,6 +136,7 @@ def plTrueInverse(assignments: Dict[Expr, bool], inverse_statement: Expr) -> boo
     pl_true may be useful here; see logic.py for its description.
     """
     "*** BEGIN YOUR CODE HERE ***"
+    return pl_true(~inverse_statement,assignments)
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -138,6 +163,7 @@ def atLeastOne(literals: List[Expr]) -> Expr:
     True
     """
     "*** BEGIN YOUR CODE HERE ***"
+    return disjoin(literals)
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -150,6 +176,12 @@ def atMostOne(literals: List[Expr]) -> Expr:
     itertools.combinations may be useful here.
     """
     "*** BEGIN YOUR CODE HERE ***"
+    pairs = itertools.combinations(literals,2)
+    combination = []
+    for item in pairs:
+        combination.append(disjoin(~item[0],~item[1]))
+    result = conjoin(combination)
+    return result
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -161,6 +193,9 @@ def exactlyOne(literals: List[Expr]) -> Expr:
     the expressions in the list is true.
     """
     "*** BEGIN YOUR CODE HERE ***"
+    sentence1 = atLeastOne(literals)
+    sentence2 = atMostOne(literals)
+    return conjoin(sentence1,sentence2)
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -194,6 +229,7 @@ def pacmanSuccessorAxiomSingle(x: int, y: int, time: int, walls_grid: List[List[
         return None
     
     "*** BEGIN YOUR CODE HERE ***"
+    return PropSymbolExpr(pacman_str,x,y,time=now)% disjoin(possible_causes)
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -265,6 +301,21 @@ def pacphysicsAxioms(t: int, all_coords: List[Tuple], non_outer_wall_coords: Lis
     pacphysics_sentences = []
 
     "*** BEGIN YOUR CODE HERE ***"
+    for x,y in all_coords:
+        pacphysics_sentences.append(PropSymbolExpr(wall_str,x,y)>>~PropSymbolExpr(pacman_str,x,y,time = t))
+    sentence2 = [PropSymbolExpr(pacman_str,x,y,time = t) for x,y in non_outer_wall_coords]
+    position_ristrict = exactlyOne(sentence2)
+    pacphysics_sentences.append(position_ristrict)
+    sentence3 = [PropSymbolExpr(direction,time =t)for direction in DIRECTIONS]
+    direction_ristrict = exactlyOne(sentence3)
+    pacphysics_sentences.append(direction_ristrict)
+    if(sensorModel != None ):
+        pacphysics_sentences.append(sensorModel(t,non_outer_wall_coords))
+    if( successorAxioms != None and t != 0):
+       pacphysics_sentences.append(successorAxioms(t,walls_grid,non_outer_wall_coords))
+    return conjoin(pacphysics_sentences)
+
+
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -299,6 +350,14 @@ def checkLocationSatisfiability(x1_y1: Tuple[int, int], x0_y0: Tuple[int, int], 
     KB.append(conjoin(map_sent))
 
     "*** BEGIN YOUR CODE HERE ***"
+    #KB.append(pacphysicsAxioms(1,all_coords,non_outer_wall_coords,walls_grid,None,successorAxioms=allLegalSuccessorAxioms))
+    #KB.append(pacphysicsAxioms(0,all_coords,non_outer_wall_coords,walls_grid,None,successorAxioms=allLegalSuccessorAxioms))
+    KB.append(pacphysicsAxioms(1,all_coords, non_outer_wall_coords, walls_grid,None, successorAxioms= allLegalSuccessorAxioms))
+    KB.append(pacphysicsAxioms(0,all_coords, non_outer_wall_coords, walls_grid,None, successorAxioms= allLegalSuccessorAxioms))
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, time=0))
+    KB.append(PropSymbolExpr(action0, time=0))
+    KB.append(PropSymbolExpr(action1, time=1))
+    return (findModel(conjoin(KB)& PropSymbolExpr(pacman_str, x1, y1, time=1)), findModel(conjoin(KB)& (~PropSymbolExpr(pacman_str, x1, y1, time=1))))
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -319,13 +378,24 @@ def positionLogicPlan(problem) -> List:
     xg, yg = problem.goal
     
     # Get lists of possible locations (i.e. without walls) and possible actions
-    all_coords = list(itertools.product(range(width + 2), 
-            range(height + 2)))
+    all_coords = list(itertools.product(range(width + 2), range(height + 2)))
     non_wall_coords = [loc for loc in all_coords if loc not in walls_list]
     actions = [ 'North', 'South', 'East', 'West' ]
     KB = []
 
     "*** BEGIN YOUR CODE HERE ***"
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, time=0))
+    for t in range(50):
+        KB.append(exactlyOne([PropSymbolExpr(pacman_str, x, y, time=t) for x, y in non_wall_coords]))
+        KB.append(exactlyOne([PropSymbolExpr(action, time=t) for action in actions]))
+        for x, y in non_wall_coords:
+            if(t > 0):
+                KB.append(pacmanSuccessorAxiomSingle(x, y, t, walls_grid))
+        goal_expr = PropSymbolExpr(pacman_str, xg, yg, time=t)
+        model = findModel(conjoin(KB + [goal_expr]))
+        if model:
+            return extractActionSequence(model, actions)
+    return []
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -355,6 +425,27 @@ def foodLogicPlan(problem) -> List:
     KB = []
 
     "*** BEGIN YOUR CODE HERE ***"
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, time=0))
+    for item in food:
+        KB.append(PropSymbolExpr(food_str,item[0],item[1],time=0))
+    for t in range(50):
+        KB.append(exactlyOne([PropSymbolExpr(pacman_str, x, y, time=t) for x, y in non_wall_coords]))
+        KB.append(exactlyOne([PropSymbolExpr(action, time=t) for action in actions]))
+        for x, y in non_wall_coords:
+            if(t > 0):
+                KB.append(pacmanSuccessorAxiomSingle(x, y, t, walls))
+        for item in food:
+            x = item[0]
+            y = item[1]
+            KB.append(((PropSymbolExpr(pacman_str, x, y, time=t))& PropSymbolExpr(food_str,x,y,time=t))>>~PropSymbolExpr(food_str,x,y,time=t+1))
+            KB.append(~PropSymbolExpr(food_str, x, y, time=t)>>~PropSymbolExpr(food_str,x,y,time=t+1))
+            KB.append(((PropSymbolExpr(food_str, x, y, time=t))& ~PropSymbolExpr(pacman_str,x,y,time=t))>>PropSymbolExpr(food_str,x,y,time=t+1))
+        end_list = [~PropSymbolExpr(food_str,x,y,time = t+1) for x,y in food]
+        goal_expr = conjoin(end_list)
+        model = findModel(conjoin(KB + [goal_expr]))
+        if model:
+            return extractActionSequence(model, actions)
+    return []
     util.raiseNotDefined()
     "*** END YOUR CODE HERE ***"
 
@@ -374,9 +465,37 @@ def localization(problem, agent) -> Generator:
     KB = []
 
     "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    for x, y in walls_list:
+        KB.append(PropSymbolExpr(wall_str, x, y))
+    for x, y in non_outer_wall_coords:
+        if (x, y) not in walls_list:
+            KB.append(~PropSymbolExpr(wall_str, x, y))
 
     for t in range(agent.num_timesteps):
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords,walls_grid,sensorModel=sensorAxioms,successorAxioms=allLegalSuccessorAxioms))
+        action_t = agent.actions[t]
+        KB.append(PropSymbolExpr(action_t, time=t))
+
+        # Get percept and add percept rules to KB
+        percept = agent.getPercepts()
+        percept_rules = fourBitPerceptRules(t, percept)
+        KB.append(percept_rules)
+        for x, y in non_outer_wall_coords:
+            if (x, y) not in walls_list:
+                KB.append(pacmanSuccessorAxiomSingle(x, y, t+1, walls_grid))
+        # Determine possible locations
+        possible_locations = []
+        for x, y in non_outer_wall_coords:
+            if (x, y) not in walls_list:
+                pacman_at_xy_t = PropSymbolExpr(pacman_str, x, y, time=t)
+                model_t = findModel(conjoin(KB) & pacman_at_xy_t)
+                if model_t:
+                    possible_locations.append((x, y))
+                if entails(conjoin(KB), PropSymbolExpr(pacman_str, x, y, time= t)):
+                    KB.append(PropSymbolExpr(pacman_str, x, y, time= t))
+                elif entails(conjoin(KB), ~PropSymbolExpr(pacman_str, x, y, time= t)):
+                    KB.append(~PropSymbolExpr(pacman_str, x, y, time= t))
+        agent.moveToNextState(agent.actions[t])
         "*** END YOUR CODE HERE ***"
         yield possible_locations
 
@@ -405,11 +524,46 @@ def mapping(problem, agent) -> Generator:
             outer_wall_sent.append(PropSymbolExpr(wall_str, x, y))
     KB.append(conjoin(outer_wall_sent))
 
-    "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
 
+    KB.append(PropSymbolExpr(pacman_str,pac_x_0,pac_y_0,time = 0))
+    known_map[pac_x_0][pac_y_0] = 0
     for t in range(agent.num_timesteps):
-        "*** END YOUR CODE HERE ***"
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, known_map,
+                                   sensorModel=sensorAxioms, successorAxioms=allLegalSuccessorAxioms))
+
+        # Add the action at time t to KB
+        action_t = agent.actions[t]
+        KB.append(PropSymbolExpr(action_t, time=t))
+
+        # Get percept and add percept rules to KB
+        percept = agent.getPercepts()
+        percept_rules = fourBitPerceptRules(t, percept)
+        KB.append(percept_rules)
+
+        # Determine possible Pacman locations
+        possible_locations = []
+        for x, y in non_outer_wall_coords:
+            pacman_at_xy_t = PropSymbolExpr(pacman_str, x, y, time=t)
+            model_t = findModel(conjoin(KB) & pacman_at_xy_t)
+            if model_t:
+                possible_locations.append((x, y))
+            if entails(conjoin(KB), pacman_at_xy_t):
+                KB.append(pacman_at_xy_t)
+            elif entails(conjoin(KB), ~pacman_at_xy_t):
+                KB.append(~pacman_at_xy_t)
+
+        # Update known wall locations in KB
+        for x, y in non_outer_wall_coords:
+            if entails(conjoin(KB), PropSymbolExpr(wall_str, x, y)):
+                KB.append(PropSymbolExpr(wall_str, x, y))
+                known_map[x][y] = 1
+            elif entails(conjoin(KB), ~PropSymbolExpr(wall_str, x, y)):
+                KB.append(~PropSymbolExpr(wall_str, x, y))
+                known_map[x][y] = 0
+
+        # Move to the next state
+        agent.moveToNextState(agent.actions[t])
+
         yield known_map
 
 #______________________________________________________________________________
@@ -437,12 +591,45 @@ def slam(problem, agent) -> Generator:
             outer_wall_sent.append(PropSymbolExpr(wall_str, x, y))
     KB.append(conjoin(outer_wall_sent))
 
-    "*** BEGIN YOUR CODE HERE ***"
-    util.raiseNotDefined()
-
+    KB.append(PropSymbolExpr(pacman_str,pac_x_0,pac_y_0,time = 0))
+    known_map[pac_x_0][pac_y_0] = 0
     for t in range(agent.num_timesteps):
-        "*** END YOUR CODE HERE ***"
-        yield (known_map, possible_locations)
+        KB.append(pacphysicsAxioms(t, all_coords, non_outer_wall_coords, known_map,
+                                   sensorModel=SLAMSensorAxioms, successorAxioms=SLAMSuccessorAxioms))
+
+        # Add the action at time t to KB
+        action_t = agent.actions[t]
+        KB.append(PropSymbolExpr(action_t, time=t))
+
+        # Get percept and add percept rules to KB
+        percept = agent.getPercepts()
+        percept_rules = numAdjWallsPerceptRules(t, percept)
+        KB.append(percept_rules)
+
+        # Determine possible Pacman locations
+        possible_locations = []
+        for x, y in non_outer_wall_coords:
+            pacman_at_xy_t = PropSymbolExpr(pacman_str, x, y, time=t)
+            model_t = findModel(conjoin(KB) & pacman_at_xy_t)
+            if model_t:
+                possible_locations.append((x, y))
+            if entails(conjoin(KB), pacman_at_xy_t):
+                KB.append(pacman_at_xy_t)
+            elif entails(conjoin(KB), ~pacman_at_xy_t):
+                KB.append(~pacman_at_xy_t)
+
+        # Update known wall locations in KB
+        for x, y in non_outer_wall_coords:
+            if entails(conjoin(KB), PropSymbolExpr(wall_str, x, y)):
+                KB.append(PropSymbolExpr(wall_str, x, y))
+                known_map[x][y] = 1
+            elif entails(conjoin(KB), ~PropSymbolExpr(wall_str, x, y)):
+                KB.append(~PropSymbolExpr(wall_str, x, y))
+                known_map[x][y] = 0
+
+        # Move to the next state
+        agent.moveToNextState(agent.actions[t])
+        yield (known_map,possible_locations)
 
 
 # Abbreviations
